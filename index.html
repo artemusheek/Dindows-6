@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dindows OS 6</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Экран загрузки */
+        #bootScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0078d7 0%, #1e47a0 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+        }
+
+        .boot-logo {
+            font-size: 48px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .boot-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .boot-progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .boot-message {
+            font-size: 14px;
+            opacity: 0.8;
+            text-align: center;
+        }
+
+        .boot-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Основной интерфейс (скрыт при загрузке) */
+        #desktopInterface {
+            display: none;
+        }
+
+        body {
+            background: linear-gradient(135deg, #000000 0%, #ff0000cb 100%);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Рабочий стол */
+        .desktop {
+            width: 100%;
+            height: calc(100vh - 40px);
+            position: relative;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.1"><rect fill="%230078d7" width="100" height="100"/><path fill="%231e47a0" d="M50 0L100 50L50 100L0 50Z"/></svg>');
+            background-size: 200px 200px;
+        }
+
+        /* Панель задач */
+        .taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+        }
+
+        .start-button {
+            background: #0078d7;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            margin-right: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .start-button:hover {
+            background: #106ebe;
+        }
+
+        .taskbar-apps {
+            display: flex;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .taskbar-app {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .taskbar-app:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .taskbar-app.active {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .system-tray {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 12px;
+        }
+
+        /* Значки рабочего стола */
+        .desktop-icon {
+            width: 80px;
+            height: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            padding: 10px 5px;
+            text-align: center;
+            position: absolute;
+            transition: background-color 0.2s;
+        }
+
+        .desktop-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .desktop-icon.selected {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .desktop-icon.dragging {
+            opacity: 0.8;
+            z-index: 500;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .icon-image {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .icon-text {
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            word-break: break-word;
+            pointer-events: none;
+        }
+
+        /* Окна */
+        .window {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            min-width: 400px;
+            min-height: 300px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            top: 50px;
+            left: 50px;
+        }
+
+        .window.active {
+            display: flex;
+            z-index: 100;
+        }
+
+        .window.dragging {
+            opacity: 0.9;
+        }
+
+        .window-header {
+            background: #0078d7;
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+        }
+
+        .window-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .window-control {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .window-minimize {
+            background: #ffb900;
+        }
+
+        .window-maximize {
+            background: #00bcf2;
+        }
+
+        .window-close {
+            background: #e81123;
+            color: white;
+        }
+
+        .window-content {
+            flex: 1;
+            padding: 0;
+            overflow: auto;
+        }
+
+        /* Меню Пуск */
+        .start-menu {
+            position: fixed;
+            bottom: 40px;
+            left: 10px;
+            width: 400px;
+            height: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 2000;
+        }
+
+        .start-menu.active {
+            display: block;
+        }
+
+        .start-menu-header {
+            background: linear-gradient(135deg, #0078d7 0%, #1e47a0 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0078d7;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .start-menu-apps {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .start-app {
+            padding: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+
+        .start-app:hover {
+            background: rgba(0, 120, 215, 0.1);
+        }
+
+        /* Стили для проводника */
+        .explorer-toolbar {
+            display: flex;
+            padding: 10px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            gap: 5px;
+        }
+
+        .explorer-button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .explorer-button:hover {
+            background: #f0f0f0;
+        }
+
+        .explorer-content {
+            display: flex;
+            height: calc(100% - 50px);
+        }
+
+        .explorer-sidebar {
+            width: 200px;
+            background: #f8f8f8;
+            border-right: 1px solid #ddd;
+            padding: 10px 0;
+        }
+
+        .explorer-main {
+            flex: 1;
+            padding: 10px;
+            overflow: auto;
+        }
+
+        .sidebar-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-item:hover {
+            background: #e8e8e8;
+        }
+
+        .sidebar-item.active {
+            background: #0078d7;
+            color: white;
+        }
+
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .file-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+
+        .file-item:hover {
+            background: #f0f0f0;
+        }
+
+        .file-item.selected {
+            background: #0078d7;
+            color: white;
+        }
+
+        .file-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .file-name {
+            font-size: 11px;
+            word-break: break-word;
+        }
+
+        /* Стили для текстового редактора */
+        .text-editor {
+            padding: 20px;
+            height: 100%;
+        }
+
+        .editor-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .editor-button {
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .editor-button:hover {
+            background: #f0f0f0;
+        }
+
+        .editor-button.save {
+            background: #107c10;
+            color: white;
+            border-color: #107c10;
+        }
+
+        .editor-button.save:hover {
+            background: #0e6b0e;
+        }
+
+        .editor-button.load {
+            background: #0078d7;
+            color: white;
+            border-color: #0078d7;
+        }
+
+        .editor-button.load:hover {
+            background: #106ebe;
+        }
+
+        .text-area {
+            width: 100%;
+            height: calc(100% - 60px);
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 15px;
+            resize: none;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .file-name-input {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+            width: 200px;
+        }
+
+        /* Браузер */
+        .browser-toolbar {
+            display: flex;
+            padding: 10px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            gap: 5px;
+        }
+
+        .browser-url-bar {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .browser-content {
+            width: 100%;
+            height: calc(100% - 50px);
+            border: none;
+        }
+
+        .calc-btn {
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .calc-btn:hover {
+            background: #f0f0f0;
+        }
+
+        /* Скрытый input для загрузки файлов */
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Экран загрузки Windows -->
+    <div id="bootScreen">
+        <div class="boot-spinner"></div>
+        <div class="boot-logo">
+            Dindows 6
+        </div>
+        <div class="boot-progress">
+            <div class="boot-progress-bar" id="bootProgress"></div>
+        </div>
+        <div class="boot-message" id="bootMessage">Подготовка Dindows...</div>
+    </div>
+
+    <!-- Основной интерфейс Windows -->
+    <div id="desktopInterface">
+        <!-- Рабочий стол -->
+        <div class="desktop" id="desktop">
+            <!-- Значки будут созданы скриптом -->
+        </div>
+
+        <!-- Панель задач -->
+        <div class="taskbar">
+            <button class="start-button" id="startButton">
+                <span>🪟</span>
+                Пуск
+            </button>
+            <div class="taskbar-apps" id="taskbarApps">
+                <!-- Приложения на панели задач будут добавляться динамически -->
+            </div>
+            <div class="system-tray">
+                <div class="time" id="currentTime">12:00</div>
+                <div>🔊</div>
+                <div>🌐</div>
+                <div>🔋</div>
+            </div>
+        </div>
+
+        <!-- Меню Пуск -->
+        <div class="start-menu" id="startMenu">
+            <div class="start-menu-header">
+                <div class="user-info">
+                    <div class="user-avatar">U</div>
+                    <div>
+                        <div style="font-weight: bold;">Пользователь</div>
+                        <div style="font-size: 12px; opacity: 0.8;">Администратор</div>
+                    </div>
+                </div>
+            </div>
+            <div class="start-menu-apps" id="startMenuApps">
+                <!-- Приложения меню Пуск будут добавляться динамически -->
+            </div>
+        </div>
+
+        <!-- Окно Проводника -->
+        <div class="window" id="explorerWindow" style="width: 800px; height: 500px;">
+            <div class="window-header">
+                <div class="window-title" id="explorerTitle">Проводник - Рабочий стол</div>
+                <div class="window-controls">
+                    <button class="window-control window-minimize" data-window="explorer">−</button>
+                    <button class="window-control window-maximize" data-window="explorer">□</button>
+                    <button class="window-control window-close" data-window="explorer">×</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div class="explorer-toolbar">
+                    <button class="explorer-button" id="explorerBack">← Назад</button>
+                    <button class="explorer-button" id="explorerForward">Вперед →</button>
+                    <button class="explorer-button" id="explorerUp">↑ Вверх</button>
+                    <button class="explorer-button" id="explorerNewFolder">📁 Новая папка</button>
+                    <button class="explorer-button" id="explorerNewText">📄 Новый текстовый файл</button>
+                </div>
+                <div class="explorer-content">
+                    <div class="explorer-sidebar">
+                        <div class="sidebar-item active" data-path="desktop">
+                            <span>📁</span> Рабочий стол
+                        </div>
+                        <div class="sidebar-item" data-path="documents">
+                            <span>📁</span> Документы
+                        </div>
+                        <div class="sidebar-item" data-path="images">
+                            <span>📁</span> Изображения
+                        </div>
+                    </div>
+                    <div class="explorer-main">
+                        <div class="files-grid" id="filesGrid">
+                            <!-- Файлы и папки будут отображаться здесь -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Окно текстового редактора -->
+        <div class="window" id="textEditorWindow" style="width: 700px; height: 500px;">
+            <div class="window-header">
+                <div class="window-title" id="textEditorTitle">Текстовый редактор</div>
+                <div class="window-controls">
+                    <button class="window-control window-minimize" data-window="textEditor">−</button>
+                    <button class="window-control window-maximize" data-window="textEditor">□</button>
+                    <button class="window-control window-close" data-window="textEditor">×</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div class="text-editor">
+                    <div class="editor-toolbar">
+                        <input type="text" class="file-name-input" id="textFileName" placeholder="Имя файла" value="Новый файл.txt">
+                        <button class="editor-button save" id="textSaveBtn">💾 Сохранить на рабочий стол</button>
+                        <button class="editor-button load" id="textLoadBtn">📁 Открыть файл</button>
+                        <button class="editor-button" id="textNewBtn">📄 Новый</button>
+                        <input type="file" class="file-input" id="fileUpload" accept=".txt">
+                    </div>
+                    <textarea class="text-area" id="textEditorArea" placeholder="Введите ваш текст здесь..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Окно Браузера -->
+        <div class="window" id="browserWindow" style="width: 800px; height: 600px;">
+            <div class="window-header">
+                <div class="window-title">Браузер</div>
+                <div class="window-controls">
+                    <button class="window-control window-minimize" data-window="browser">−</button>
+                    <button class="window-control window-maximize" data-window="browser">□</button>
+                    <button class="window-control window-close" data-window="browser">×</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div class="browser-toolbar">
+                    <button class="browser-button" id="browserBack">←</button>
+                    <button class="browser-button" id="browserForward">→</button>
+                    <button class="browser-button" id="browserRefresh">↻</button>
+                    <input type="text" class="browser-url-bar" id="browserUrl" placeholder="Введите адрес сайта..." value="https://www.wikipedia.com">
+                    <button class="browser-button" id="browserGo">Перейти</button>
+                </div>
+                <iframe class="browser-content" id="browserFrame" src="https://www.wikipedia.com"></iframe>
+            </div>
+        </div>
+
+        <!-- Окно Калькулятора -->
+        <div class="window" id="calculatorWindow">
+            <div class="window-header">
+                <div class="window-title">Калькулятор</div>
+                <div class="window-controls">
+                    <button class="window-control window-minimize" data-window="calculator">−</button>
+                    <button class="window-control window-maximize" data-window="calculator">□</button>
+                    <button class="window-control window-close" data-window="calculator">×</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div style="text-align: center;">
+                    <div style="font-size: 24px; margin-bottom: 20px; padding: 10px; background: #f0f0f0; border-radius: 3px;" id="calcDisplay">0</div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                        <button class="calc-btn" style="grid-column: span 2;">C</button>
+                        <button class="calc-btn">←</button>
+                        <button class="calc-btn">/</button>
+                        
+                        <button class="calc-btn">7</button>
+                        <button class="calc-btn">8</button>
+                        <button class="calc-btn">9</button>
+                        <button class="calc-btn">*</button>
+                        
+                        <button class="calc-btn">4</button>
+                        <button class="calc-btn">5</button>
+                        <button class="calc-btn">6</button>
+                        <button class="calc-btn">-</button>
+                        
+                        <button class="calc-btn">1</button>
+                        <button class="calc-btn">2</button>
+                        <button class="calc-btn">3</button>
+                        <button class="calc-btn">+</button>
+                        
+                        <button class="calc-btn" style="grid-column: span 2;">0</button>
+                        <button class="calc-btn">.</button>
+                        <button class="calc-btn">=</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ПРОЦЕСС ЗАГРУЗКИ DINDOWS
+        document.addEventListener('DOMContentLoaded', function() {
+            const bootScreen = document.getElementById('bootScreen');
+            const desktopInterface = document.getElementById('desktopInterface');
+            const bootProgress = document.getElementById('bootProgress');
+            const bootMessage = document.getElementById('bootMessage');
+
+            // Этапы загрузки с сообщениями
+            const bootSteps = [
+                { progress: 10, message: "Подготовка Dindows..." },
+                { progress: 20, message: "Загрузка системных файлов..." },
+                { progress: 25, message: "Инициализация ядра системы..." },
+                { progress: 40, message: "Загрузка драйверов..." },
+                { progress: 55, message: "Подготовка рабочего стола..." },
+                { progress: 60, message: "Запуск системных служб..." },
+                { progress: 70, message: "Настройка пользовательской среды..." },
+                { progress: 91, message: "Кушаем печеньки" },
+                { progress: 91, message: "Загрузка системы..." }
+                
+            ];
+
+            let currentStep = 0;
+
+            function simulateBoot() {
+                if (currentStep < bootSteps.length) {
+                    const step = bootSteps[currentStep];
+                    bootProgress.style.width = step.progress + '%';
+                    bootMessage.textContent = step.message;
+                    currentStep++;
+                    
+                    // Случайная задержка между этапами для реалистичности
+                    const delay = Math.random() * 800 + 400;
+                    setTimeout(simulateBoot, delay);
+                } else {
+                    // Загрузка завершена
+                    setTimeout(showDesktop, 1000);
+                }
+            }
+
+            function showDesktop() {
+                // Плавное исчезновение экрана загрузки
+                bootScreen.style.opacity = '0';
+                bootScreen.style.transition = 'opacity 0.5s ease';
+                
+                setTimeout(() => {
+                    bootScreen.style.display = 'none';
+                    desktopInterface.style.display = 'block';
+                    
+                    // Запускаем основную систему
+                    initWindowsSystem();
+                }, 500);
+            }
+
+            // Начинаем процесс загрузки
+            setTimeout(simulateBoot, 1000);
+        });
+
+        // ОСНОВНАЯ СИСТЕМА WINDOWS
+        function initWindowsSystem() {
+            // ОБНОВЛЕНИЕ ВРЕМЕНИ
+            function updateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('ru-RU', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                document.getElementById('currentTime').textContent = timeString;
+            }
+            setInterval(updateTime, 1000);
+            updateTime();
+
+            // ОКНА
+            const windows = {
+                explorer: document.getElementById('explorerWindow'),
+                textEditor: document.getElementById('textEditorWindow'),
+                browser: document.getElementById('browserWindow'),
+                calculator: document.getElementById('calculatorWindow')
+            };
+
+            // ХРАНИЛИЩЕ ФАЙЛОВ
+            let desktopFiles = {
+                'Приветствие.txt': 'Добро пожаловать в Браузерную Dindows 6!\n\n Вы можете открывать и редактировать файлы в текстовом редакторе.\n\nСохраняйте файлы на рабочий стол и они появятся как значки.\n\nК сожалению Dindows 6 не будет крупно обновлятся!.Максимум будут добавлятся значки в трее',
+                'Инструкция.txt': 'Как использовать систему:\n\n1. Двойной клик по значкам - открыть приложения\n2. Правый клик - контекстное меню\n3. Перетаскивайте значки на рабочем столе\n4. Сохраняйте файлы через текстовый редактор\n5. Используйте браузер для просмотра сайтов'
+            };
+
+            // ЗНАЧКИ НА РАБОЧЕМ СТОЛЕ
+            const desktop = document.getElementById('desktop');
+            const apps = [
+                { app: 'explorer', name: 'Проводник', icon: '📁', top: 20, left: 20 },
+                { app: 'textEditor', name: 'Текстовый редактор', icon: '📝', top: 120, left: 20 },
+                { app: 'browser', name: 'Браузер', icon: '🌐', top: 220, left: 20 },
+                { app: 'calculator', name: 'Калькулятор', icon: '🧮', top: 320, left: 20 }
+            ];
+
+            // ФУНКЦИЯ ОБНОВЛЕНИЯ РАБОЧЕГО СТОЛА
+            function updateDesktop() {
+                // Удаляем старые файловые значки
+                document.querySelectorAll('.desktop-icon[data-file]').forEach(icon => icon.remove());
+                
+                // Добавляем файловые значки
+                let filePosition = { top: 20, left: 120 };
+                Object.keys(desktopFiles).forEach((fileName, index) => {
+                    const fileIcon = document.createElement('div');
+                    fileIcon.className = 'desktop-icon';
+                    fileIcon.style.top = filePosition.top + 'px';
+                    fileIcon.style.left = filePosition.left + 'px';
+                    fileIcon.dataset.file = fileName;
+                    
+                    fileIcon.innerHTML = `
+                        <div class="icon-image">📄</div>
+                        <div class="icon-text">${fileName}</div>
+                    `;
+                    
+                    // ДВОЙНОЙ КЛИК - ОТКРЫТИЕ ФАЙЛА В РЕДАКТОРЕ
+                    fileIcon.addEventListener('dblclick', function() {
+                        openFileInEditor(fileName, desktopFiles[fileName]);
+                    });
+                    
+                    desktop.appendChild(fileIcon);
+                    
+                    // Обновляем позицию для следующего файла
+                    filePosition.top += 100;
+                    if (filePosition.top > 320) {
+                        filePosition.top = 20;
+                        filePosition.left += 100;
+                    }
+                });
+            }
+
+            // СОЗДАЕМ ЗНАЧКИ ПРИЛОЖЕНИЙ
+            apps.forEach(iconInfo => {
+                const icon = document.createElement('div');
+                icon.className = 'desktop-icon';
+                icon.style.top = iconInfo.top + 'px';
+                icon.style.left = iconInfo.left + 'px';
+                icon.innerHTML = `
+                    <div class="icon-image">${iconInfo.icon}</div>
+                    <div class="icon-text">${iconInfo.name}</div>
+                `;
+                
+                // ДВОЙНОЙ КЛИК - ОТКРЫТИЕ ПРИЛОЖЕНИЯ
+                icon.addEventListener('dblclick', function() {
+                    openApp(iconInfo.app);
+                });
+                
+                desktop.appendChild(icon);
+            });
+
+            // ОБНОВЛЯЕМ РАБОЧИЙ СТОЛ ПЕРВОНАЧАЛЬНО
+            updateDesktop();
+
+            // МЕНЮ ПУСК
+            const startButton = document.getElementById('startButton');
+            const startMenu = document.getElementById('startMenu');
+            const startMenuApps = document.getElementById('startMenuApps');
+
+            // СОЗДАЕМ ПРИЛОЖЕНИЯ В МЕНЮ ПУСК
+            apps.forEach(iconInfo => {
+                const startApp = document.createElement('div');
+                startApp.className = 'start-app';
+                startApp.innerHTML = `
+                    <div style="font-size: 24px; margin-bottom: 5px;">${iconInfo.icon}</div>
+                    <div>${iconInfo.name}</div>
+                `;
+                
+                startApp.addEventListener('click', function() {
+                    openApp(iconInfo.app);
+                    startMenu.classList.remove('active');
+                });
+                
+                startMenuApps.appendChild(startApp);
+            });
+
+            // ОТКРЫТИЕ ПРИЛОЖЕНИЯ
+            function openApp(appName) {
+                // Закрываем меню Пуск
+                startMenu.classList.remove('active');
+                
+                // Скрываем все окна
+                Object.values(windows).forEach(window => {
+                    window.classList.remove('active');
+                });
+                
+                // Показываем нужное окно
+                if (windows[appName]) {
+                    windows[appName].classList.add('active');
+                    windows[appName].style.zIndex = '100';
+                    
+                    // Если открываем проводник - обновляем его содержимое
+                    if (appName === 'explorer') {
+                        initExplorer();
+                    }
+                    
+                    // Добавляем на панель задач
+                    addToTaskbar(appName);
+                }
+            }
+
+            // ОТКРЫТИЕ ФАЙЛА В РЕДАКТОРЕ
+            function openFileInEditor(fileName, content) {
+                document.getElementById('textFileName').value = fileName;
+                document.getElementById('textEditorArea').value = content;
+                document.getElementById('textEditorTitle').textContent = `Текстовый редактор - ${fileName}`;
+                openApp('textEditor');
+            }
+
+            // ДОБАВЛЕНИЕ НА ПАНЕЛЬ ЗАДАЧ
+            function addToTaskbar(appName) {
+                const taskbarApps = document.getElementById('taskbarApps');
+                const appInfo = apps.find(app => app.app === appName);
+                
+                if (!appInfo) return;
+                
+                const existingApp = taskbarApps.querySelector(`[data-app="${appName}"]`);
+                if (!existingApp) {
+                    const appElement = document.createElement('div');
+                    appElement.className = 'taskbar-app';
+                    appElement.dataset.app = appName;
+                    appElement.innerHTML = `
+                        <span>${appInfo.icon}</span>
+                        ${appInfo.name}
+                    `;
+                    
+                    appElement.addEventListener('click', function() {
+                        if (windows[appName].classList.contains('active')) {
+                            windows[appName].classList.remove('active');
+                            appElement.classList.remove('active');
+                        } else {
+                            openApp(appName);
+                        }
+                    });
+                    
+                    taskbarApps.appendChild(appElement);
+                }
+            }
+
+            // ПРОВОДНИК
+            function initExplorer() {
+                const filesGrid = document.getElementById('filesGrid');
+                const explorerBack = document.getElementById('explorerBack');
+                const explorerForward = document.getElementById('explorerForward');
+                const explorerUp = document.getElementById('explorerUp');
+                const explorerNewFolder = document.getElementById('explorerNewFolder');
+                const explorerNewText = document.getElementById('explorerNewText');
+                const sidebarItems = document.querySelectorAll('.sidebar-item');
+
+                function renderFiles() {
+                    filesGrid.innerHTML = '';
+                    
+                    // Отображаем файлы с рабочего стола
+                    Object.keys(desktopFiles).forEach(fileName => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        fileItem.dataset.name = fileName;
+                        
+                        fileItem.innerHTML = `
+                            <div class="file-icon">📄</div>
+                            <div class="file-name">${fileName}</div>
+                        `;
+                        
+                        fileItem.addEventListener('dblclick', function() {
+                            openFileInEditor(fileName, desktopFiles[fileName]);
+                        });
+                        
+                        filesGrid.appendChild(fileItem);
+                    });
+                }
+
+                function createNewFolder() {
+                    const folderName = prompt('Введите имя новой папки:', 'Новая папка');
+                    if (folderName && folderName.trim()) {
+                        alert(`Папка "${folderName}" создана!`);
+                        renderFiles();
+                    }
+                }
+
+                function createNewTextFile() {
+                    const fileName = prompt('Введите имя файла:', 'Новый файл.txt');
+                    if (fileName && fileName.trim()) {
+                        const finalName = fileName.endsWith('.txt') ? fileName : fileName + '.txt';
+                        desktopFiles[finalName] = '';
+                        updateDesktop();
+                        renderFiles();
+                        alert(`Файл "${finalName}" создан!`);
+                    }
+                }
+
+                // ОБРАБОТЧИКИ ПРОВОДНИКА
+                explorerBack.addEventListener('click', () => {
+                    alert('Навигация назад');
+                });
+
+                explorerForward.addEventListener('click', () => {
+                    alert('Навигация вперед');
+                });
+
+                explorerUp.addEventListener('click', () => {
+                    alert('Переход на уровень вверх');
+                });
+
+                explorerNewFolder.addEventListener('click', createNewFolder);
+                explorerNewText.addEventListener('click', createNewTextFile);
+
+                sidebarItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        sidebarItems.forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                        alert(`Открыта папка: ${item.textContent}`);
+                    });
+                });
+
+                renderFiles();
+            }
+
+            // КНОПКА ПУСК - ОТКРЫТИЕ/ЗАКРЫТИЕ МЕНЮ
+            startButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                startMenu.classList.toggle('active');
+            });
+
+            // ЗАКРЫТИЕ МЕНЮ ПУСК ПРИ КЛИКЕ ВНЕ
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.start-menu') && !e.target.closest('.start-button')) {
+                    startMenu.classList.remove('active');
+                }
+            });
+
+            // ТЕКСТОВЫЙ РЕДАКТОР - СОХРАНЕНИЕ ФАЙЛА
+            document.getElementById('textSaveBtn').addEventListener('click', function() {
+                const fileName = document.getElementById('textFileName').value;
+                const fileContent = document.getElementById('textEditorArea').value;
+                
+                if (!fileName) {
+                    alert('Введите имя файла!');
+                    return;
+                }
+                
+                // Добавляем расширение .txt если его нет
+                const finalFileName = fileName.endsWith('.txt') ? fileName : fileName + '.txt';
+                
+                // Сохраняем файл на рабочий стол
+                desktopFiles[finalFileName] = fileContent;
+                
+                // Обновляем рабочий стол
+                updateDesktop();
+                
+                alert(`Файл "${finalFileName}" сохранен на рабочем столе!`);
+            });
+
+            // ТЕКСТОВЫЙ РЕДАКТОР - ЗАГРУЗКА ФАЙЛА
+            document.getElementById('textLoadBtn').addEventListener('click', function() {
+                document.getElementById('fileUpload').click();
+            });
+
+            // ОБРАБОТКА ЗАГРУЗКИ ФАЙЛА
+            document.getElementById('fileUpload').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type === 'text/plain') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const content = e.target.result;
+                        document.getElementById('textFileName').value = file.name;
+                        document.getElementById('textEditorArea').value = content;
+                        document.getElementById('textEditorTitle').textContent = `Текстовый редактор - ${file.name}`;
+                        
+                        // Также сохраняем файл на рабочий стол
+                        desktopFiles[file.name] = content;
+                        updateDesktop();
+                        
+                        alert(`Файл "${file.name}" загружен и сохранен на рабочем столе!`);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Пожалуйста, выберите текстовый файл (.txt)');
+                }
+                
+                // Сбрасываем input
+                e.target.value = '';
+            });
+
+            // ТЕКСТОВЫЙ РЕДАКТОР - НОВЫЙ ФАЙЛ
+            document.getElementById('textNewBtn').addEventListener('click', function() {
+                document.getElementById('textFileName').value = 'Новый файл.txt';
+                document.getElementById('textEditorArea').value = '';
+                document.getElementById('textEditorTitle').textContent = 'Текстовый редактор';
+            });
+
+            // БРАУЗЕР
+            function initBrowser() {
+                const browserFrame = document.getElementById('browserFrame');
+                const browserUrl = document.getElementById('browserUrl');
+                const browserGo = document.getElementById('browserGo');
+
+                function loadUrl(url) {
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        url = 'https://' + url;
+                    }
+                    browserUrl.value = url;
+                    browserFrame.src = url;
+                }
+
+                browserGo.addEventListener('click', () => {
+                    loadUrl(browserUrl.value);
+                });
+
+                browserUrl.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        loadUrl(browserUrl.value);
+                    }
+                });
+            }
+
+            // КАЛЬКУЛЯТОР
+            function initCalculator() {
+                let calcValue = '0';
+                const calcDisplay = document.getElementById('calcDisplay');
+                
+                document.querySelectorAll('.calc-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const action = this.textContent;
+                        
+                        switch(action) {
+                            case 'C':
+                                calcValue = '0';
+                                break;
+                            case '←':
+                                calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
+                                break;
+                            case '=':
+                                try {
+                                    calcValue = eval(calcValue).toString();
+                                } catch {
+                                    calcValue = 'Error';
+                                }
+                                break;
+                            default:
+                                if (calcValue === '0' || calcValue === 'Error') {
+                                    calcValue = action;
+                                } else {
+                                    calcValue += action;
+                                }
+                        }
+                        
+                        calcDisplay.textContent = calcValue;
+                    });
+                });
+            }
+
+            // ИНИЦИАЛИЗАЦИЯ БРАУЗЕРА И КАЛЬКУЛЯТОРА
+            initBrowser();
+            initCalculator();
+
+            // ПЕРЕТАСКИВАНИЕ ЗНАЧКОВ
+            let isIconDragging = false;
+            let currentDraggedIcon = null;
+            let dragOffsetX = 0;
+            let dragOffsetY = 0;
+
+            document.addEventListener('mousedown', function(e) {
+                if (e.target.closest('.desktop-icon')) {
+                    const icon = e.target.closest('.desktop-icon');
+                    isIconDragging = true;
+                    currentDraggedIcon = icon;
+                    icon.classList.add('dragging');
+                    
+                    const rect = icon.getBoundingClientRect();
+                    dragOffsetX = e.clientX - rect.left;
+                    dragOffsetY = e.clientY - rect.top;
+                    
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isIconDragging && currentDraggedIcon) {
+                    const x = e.clientX - dragOffsetX;
+                    const y = e.clientY - dragOffsetY;
+                    
+                    const maxX = window.innerWidth - currentDraggedIcon.offsetWidth;
+                    const maxY = window.innerHeight - currentDraggedIcon.offsetHeight - 40;
+                    
+                    currentDraggedIcon.style.left = Math.max(10, Math.min(x, maxX - 10)) + 'px';
+                    currentDraggedIcon.style.top = Math.max(10, Math.min(y, maxY - 10)) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isIconDragging && currentDraggedIcon) {
+                    isIconDragging = false;
+                    currentDraggedIcon.classList.remove('dragging');
+                    currentDraggedIcon = null;
+                }
+            });
+
+            // ПЕРЕТАСКИВАНИЕ ОКОН
+            let isWindowDragging = false;
+            let currentDraggedWindow = null;
+            let windowDragOffsetX = 0;
+            let windowDragOffsetY = 0;
+
+            Object.values(windows).forEach(window => {
+                const header = window.querySelector('.window-header');
+                
+                header.addEventListener('mousedown', function(e) {
+                    isWindowDragging = true;
+                    currentDraggedWindow = window;
+                    window.classList.add('dragging');
+                    window.style.zIndex = '1000';
+                    
+                    const rect = window.getBoundingClientRect();
+                    windowDragOffsetX = e.clientX - rect.left;
+                    windowDragOffsetY = e.clientY - rect.top;
+                    
+                    e.preventDefault();
+                });
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isWindowDragging && currentDraggedWindow) {
+                    const x = e.clientX - windowDragOffsetX;
+                    const y = e.clientY - windowDragOffsetY;
+                    
+                    const maxX = window.innerWidth - currentDraggedWindow.offsetWidth;
+                    const maxY = window.innerHeight - currentDraggedWindow.offsetHeight - 40;
+                    
+                    currentDraggedWindow.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+                    currentDraggedWindow.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isWindowDragging && currentDraggedWindow) {
+                    isWindowDragging = false;
+                    currentDraggedWindow.classList.remove('dragging');
+                    currentDraggedWindow = null;
+                }
+            });
+
+            // ЗАКРЫТИЕ ОКОН
+            document.querySelectorAll('.window-close').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const windowName = this.dataset.window;
+                    if (windows[windowName]) {
+                        windows[windowName].classList.remove('active');
+                        
+                        const taskbarApp = document.querySelector(`.taskbar-app[data-app="${windowName}"]`);
+                        if (taskbarApp) {
+                            taskbarApp.remove();
+                        }
+                    }
+                });
+            });
+
+            // ОТКРЫВАЕМ ПРОВОДНИК ПРИ ЗАГРУЗКЕ СИСТЕМЫ
+            setTimeout(() => {
+                openApp('explorer');
+            }, 500);
+        }
+    </script>
+</body>
+</html>
